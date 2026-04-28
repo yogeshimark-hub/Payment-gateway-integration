@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'paid'       => \App\Http\Middleware\EnsurePaymentCompleted::class,
             'subscribed' => \App\Http\Middleware\EnsureSubscribed::class,
+            'admin'      => \App\Http\Middleware\EnsureAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

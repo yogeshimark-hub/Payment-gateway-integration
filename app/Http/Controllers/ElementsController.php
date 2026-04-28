@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderType;
 use App\Models\Order;
+use App\Models\Plan;
 use App\Models\Product;
 use App\Services\Stripe\PaymentIntentService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 /**
@@ -56,5 +58,29 @@ class ElementsController extends Controller
         abort_unless($order->user_id === auth()->id(), 403);
 
         return view('payments.elements-success', compact('order'));
+    }
+
+    /**
+     * Plan-aware entrypoint from the unified /plans page. Same as show()
+     * but takes a Plan instead of a Product.
+     */
+    public function showForPlan(Plan $plan): View|RedirectResponse
+    {
+        if (! $plan->is_active || $plan->isRecurring() || $plan->needsStripeSync()) {
+            return redirect()->route('pricing.index')
+                ->with('error', "Plan '{$plan->name}' is not available via Stripe Elements.");
+        }
+
+        $result = $this->paymentIntents->createForPlan(
+            user: auth()->user(),
+            plan: $plan,
+            type: OrderType::Elements,
+        );
+
+        return view('payments.elements-plan', [
+            'plan'         => $plan,
+            'order'        => $result['order'],
+            'clientSecret' => $result['client_secret'],
+        ]);
     }
 }

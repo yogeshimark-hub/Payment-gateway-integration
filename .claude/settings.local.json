@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l app/Services/Stripe/PaymentIntentService.php)",
+      "Bash(php -l app/Services/Stripe/CheckoutService.php)",
+      "Bash(php -l app/Http/Controllers/PaymentIntentController.php)",
+      "Bash(php -l app/Http/Controllers/CheckoutController.php)",
+      "Bash(php -l app/Http/Controllers/ElementsController.php)",
+      "Bash(php artisan *)",
+      "Bash(php *)",
+      "Bash(grep -oE \"[^>]{0,30}>Plans<[^/]{0,5}/a>\" _dashboard_dump.html)",
+      "Bash(grep -oE \"[^>]{0,40}>Plans\" _dashboard_dump.html)",
+      "Bash(grep -oE \".{0,30}Plans.{0,10}\" _dashboard_dump.html)",
+      "Bash(/c/xampp/mysql/bin/mysql.exe *)"
+    ]
+  }
+}

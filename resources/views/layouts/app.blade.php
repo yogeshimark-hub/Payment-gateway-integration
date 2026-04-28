@@ -21,6 +21,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('pricing.index') }}">Plans</a>
+                    </li>
+                    @if (auth()->user()->is_admin && Route::has('admin.plans.index'))
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('admin.plans.index') }}">
+                                <span class="badge bg-danger">Admin</span> Plans
+                            </a>
+                        </li>
+                    @endif
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">

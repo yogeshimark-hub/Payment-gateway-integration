@@ -98,5 +98,21 @@ window.PaymentIntentFlow = (function ($) {
         $form.on('submit', function (e) { handleAmountSubmit(e, opts); });
     }
 
-    return { init: init };
+    /**
+     * Single-step variant for the plan-based flow: PaymentIntent is already
+     * created server-side, so we mount the Payment Element on page load and
+     * just confirm on submit.
+     */
+    function initWithSecret(opts) {
+        stripe    = Stripe(window.STRIPE_KEY);
+        elements  = stripe.elements({ clientSecret: opts.clientSecret });
+        returnUrl = opts.returnUrl;
+
+        const paymentElement = elements.create('payment');
+        paymentElement.mount('#payment-element');
+
+        $('#payment-form').on('submit', handleCardSubmit);
+    }
+
+    return { init: init, initWithSecret: initWithSecret };
 })(jQuery);

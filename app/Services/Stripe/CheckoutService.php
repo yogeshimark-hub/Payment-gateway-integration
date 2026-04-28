@@ -6,6 +6,7 @@ use App\Contracts\PaymentGatewayInterface;
 use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Models\Order;
+use App\Models\Plan;
 use App\Models\Price;
 use App\Models\Product;
 use App\Models\User;
@@ -73,6 +74,61 @@ class CheckoutService
                     'metadata' => [
                         'order_uuid' => $order->uuid,
                         'user_id'    => (string) $user->id,
+                    ],
+                ],
+            ]);
+
+            $order->update(['stripe_checkout_session_id' => $session->id]);
+
+            return $session;
+        });
+    }
+
+    /**
+     * Plan-aware variant — same hosted Checkout flow, but the line item is
+     * derived from a Plan (no Product/Price tables involved). Used for
+     * one-time plans coming from the unified /plans page.
+     *
+     * Recurring plans go through Cashier (SubscriptionService), not here.
+     */
+    public function startForPlan(User $user, Plan $plan): Session
+    {
+        return DB::transaction(function () use ($user, $plan) {
+            $order = Order::create([
+                'user_id'      => $user->id,
+                'type'         => OrderType::Checkout,
+                'status'       => OrderStatus::Pending,
+                'amount_cents' => $plan->amount_cents,
+                'currency'     => strtoupper($plan->currency),
+                'metadata'     => [
+                    'plan_id'   => $plan->id,
+                    'plan_slug' => $plan->slug,
+                ],
+            ]);
+
+            $session = $this->gateway->createCheckoutSession([
+                'mode' => 'payment',
+                'line_items' => [[
+                    'price_data' => [
+                        'currency'     => strtolower($plan->currency),
+                        'product_data' => ['name' => $plan->name],
+                        'unit_amount'  => $plan->amount_cents,
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url'    => route('payments.checkout.success', $order->uuid),
+                'cancel_url'     => route('payments.checkout.cancel'),
+                'customer_email' => $user->email,
+                'metadata' => [
+                    'order_uuid' => $order->uuid,
+                    'user_id'    => (string) $user->id,
+                    'plan_id'    => (string) $plan->id,
+                ],
+                'payment_intent_data' => [
+                    'metadata' => [
+                        'order_uuid' => $order->uuid,
+                        'user_id'    => (string) $user->id,
+                        'plan_id'    => (string) $plan->id,
                     ],
                 ],
             ]);

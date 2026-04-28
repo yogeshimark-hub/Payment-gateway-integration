@@ -39,6 +39,12 @@ return [
         'key'            => env('STRIPE_KEY'),
         'secret'         => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+
+        // The Stripe PHP SDK ships its own CA bundle and overrides php.ini's
+        // curl.cainfo. When that bundle goes stale (Stripe rotates certs)
+        // every API call 500s with "unable to get local issuer certificate".
+        // Override here. Default falls back to php.ini's curl.cainfo.
+        'ca_bundle' => env('STRIPE_CA_BUNDLE', ini_get('curl.cainfo') ?: null),
     ],
 
 ];

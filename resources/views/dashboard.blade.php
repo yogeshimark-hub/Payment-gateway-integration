@@ -10,6 +10,23 @@
     </div>
 </div>
 
+@php
+    $hasActiveSub  = $subscription && $subscription->valid();
+    $hasPaidOrder  = $orders->contains(fn ($o) => $o->isPaid());
+@endphp
+
+@unless ($hasActiveSub || $hasPaidOrder)
+    <div class="alert alert-primary d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div class="me-3">
+            <h5 class="mb-1">New here? Start with a plan.</h5>
+            <p class="mb-0 small">
+                The unified <strong>/plans</strong> page lets you pick a plan and a payment method in one place — recurring or one-time, all four Stripe patterns.
+            </p>
+        </div>
+        <a href="{{ route('pricing.index') }}" class="btn btn-primary">Browse plans →</a>
+    </div>
+@endunless
+
 <div class="row g-3 mb-4">
     <div class="col-md-6 col-lg-3">
         <div class="card h-100 border-primary">
@@ -66,7 +83,10 @@
                 @forelse ($plans as $plan)
                     <li class="list-group-item d-flex justify-content-between">
                         <span>{{ $plan->name }}</span>
-                        <span class="text-muted">{{ $plan->formatted_amount }} / {{ $plan->interval->value }}</span>
+                        <span class="text-muted">
+                            {{ $plan->formatted_amount }}
+                            {{ $plan->isRecurring() ? '/ ' . $plan->interval->value : '· one-time' }}
+                        </span>
                     </li>
                 @empty
                     <li class="list-group-item text-muted">No plans seeded.</li>

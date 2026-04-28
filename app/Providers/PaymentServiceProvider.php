@@ -11,6 +11,15 @@ class PaymentServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Stripe SDK bundles its own ca-certificates.crt and uses it instead
+        // of php.ini's curl.cainfo. When that bundle goes stale, every API
+        // call dies with errno 60. Force it to use a fresher bundle if we
+        // have one configured.
+        $caBundle = config('services.stripe.ca_bundle');
+        if ($caBundle && file_exists($caBundle)) {
+            \Stripe\Stripe::setCABundlePath($caBundle);
+        }
+
         $this->app->singleton(PaymentGatewayInterface::class, function () {
             return new StripePaymentGateway(
                 secretKey:     (string) config('services.stripe.secret'),

@@ -6,6 +6,7 @@ use App\Contracts\PaymentGatewayInterface;
 use App\Enums\OrderStatus;
 use App\Enums\OrderType;
 use App\Models\Order;
+use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -59,5 +60,29 @@ class PaymentIntentService
                 'client_secret' => $intent->client_secret,
             ];
         });
+    }
+
+    /**
+     * Plan-aware variant — pulls amount/currency from a Plan instead of
+     * requiring the caller to pass them. Used by the unified /plans flow.
+     *
+     * @return array{order: Order, client_secret: string}
+     */
+    public function createForPlan(
+        User $user,
+        Plan $plan,
+        OrderType $type = OrderType::PaymentIntent,
+    ): array {
+        return $this->create(
+            user:        $user,
+            amountCents: $plan->amount_cents,
+            currency:    $plan->currency,
+            type:        $type,
+            metadata:    [
+                'plan_id'   => (string) $plan->id,
+                'plan_slug' => $plan->slug,
+                'plan_name' => $plan->name,
+            ],
+        );
     }
 }

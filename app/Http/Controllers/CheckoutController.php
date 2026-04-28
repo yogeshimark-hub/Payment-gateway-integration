@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateCheckoutSessionRequest;
 use App\Models\Order;
+use App\Models\Plan;
 use App\Models\Product;
 use App\Services\Stripe\CheckoutService;
 use Illuminate\Http\RedirectResponse;
@@ -41,5 +42,20 @@ class CheckoutController extends Controller
     public function cancel(): View
     {
         return view('payments.checkout-cancel');
+    }
+
+    /**
+     * Plan-aware entrypoint from the unified /plans page.
+     */
+    public function startForPlan(Plan $plan): RedirectResponse
+    {
+        if (! $plan->is_active || $plan->isRecurring() || $plan->needsStripeSync()) {
+            return redirect()->route('pricing.index')
+                ->with('error', "Plan '{$plan->name}' is not available for one-time checkout.");
+        }
+
+        $session = $this->service->startForPlan(auth()->user(), $plan);
+
+        return redirect()->away($session->url, 303);
     }
 }

@@ -6,7 +6,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ElementsController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\PaymentIntentController;
+use App\Http\Controllers\PricingController;
 use App\Http\Controllers\SubscriptionController;
+use App\Models\Plan;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +28,14 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Unified pricing page — entry point that fans out to all four patterns (8d).
+    Route::get('/plans', [PricingController::class, 'index'])->name('pricing.index');
+
+    // Plan-aware payment entrypoints — every method picker on /plans lands here.
+    Route::post('/plans/{plan}/pay/intent',   [PaymentIntentController::class, 'startForPlan'])->name('plans.pay.intent');
+    Route::post('/plans/{plan}/pay/checkout', [CheckoutController::class, 'startForPlan'])->name('plans.pay.checkout');
+    Route::get( '/plans/{plan}/pay/elements', [ElementsController::class, 'showForPlan'])->name('plans.pay.elements');
 
     // Combo 1a — Cashier subscriptions
     Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
@@ -62,6 +72,13 @@ Route::middleware('auth')->group(function () {
 
     // Polled by every success page to detect when the webhook flipped status.
     Route::get('/orders/{order:uuid}/status', [OrderStatusController::class, 'show'])->name('orders.status');
+});
+
+// Admin
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::resource('plans', \App\Http\Controllers\Admin\PlanController::class)->except(['show']);
+    Route::patch('plans/{plan}/toggle', [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('plans.toggle');
+    Route::post('plans/{plan}/sync', [\App\Http\Controllers\Admin\PlanController::class, 'sync'])->name('plans.sync');
 });
 
 // Stripe webhook — no auth, no CSRF; signature is verified by Cashier's
