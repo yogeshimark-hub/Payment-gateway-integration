@@ -33,6 +33,7 @@ A reference Laravel application that demonstrates **four Stripe integration patt
 9. [When to Use Which](#when-to-use-which)
 10. [Implementation Roadmap](#implementation-roadmap)
 11. [Setup](#setup)
+12. [Testing the Four Combos](#testing-the-four-combos)
 
 ---
 
@@ -522,51 +523,78 @@ A **single endpoint** at `POST /stripe/webhook` is the source of truth for all f
 
 ## Implementation Roadmap
 
-The project is built incrementally — each step explained, verified, and committed before moving on.
+The project was built incrementally — each step explained, verified, and confirmed before the next.
 
-| # | Step | Deliverables |
+| # | Step | Status |
 |---|---|---|
-| **0** | Install packages | `laravel/cashier` + `stripe/stripe-php`, `.env` keys |
-| **1** | Schema + models + custom auth | All migrations, Eloquent models with relations, PHP enums, `AuthController` + login/register Blade + jQuery validation, `auth` middleware |
-| **2** | Webhook foundation | `PaymentGatewayInterface`, `StripePaymentGateway`, `WebhookController`, `WebhookEventHandler`, `webhook_events` idempotency, `OrderPaid` event + queued listeners, `EnsurePaymentCompleted` middleware, `ReconcileStripePaymentsJob` skeleton |
-| **3** | Combo 1a — Cashier subscriptions | `SubscriptionController` + `SubscriptionService` + `SubscribeRequest` + plan selection page |
-| **4** | Combo 1b — Payment Intents (custom one-time) | `PaymentIntentController` + `PaymentIntentService` + `CreatePaymentIntentRequest` + minimal Blade page |
-| **5** | Combo 2a — Stripe Checkout (hosted) | `CheckoutController` + `CheckoutService` + `CreateCheckoutSessionRequest` |
-| **6** | Combo 2b — Stripe Elements (custom UI) | `ElementsController` + branded Blade + Stripe Elements card field (reuses `PaymentIntentService`) |
-| **7** | Landing page + e2e test | All four flows linked, Stripe CLI test, README finalised |
+| **0** | Install `laravel/cashier` + `stripe/stripe-php`, configure `.env` | ✅ Done |
+| **1** | Schema, models, relations, enums, custom auth (jQuery validation) | ✅ Done |
+| **2** | Webhook foundation — interface, gateway, idempotency, events, listeners, middleware, reconciliation cron | ✅ Done |
+| **3** | Combo 1a — Cashier subscriptions | ✅ Done |
+| **4** | Combo 1b — Payment Intents (Payment Element) | ✅ Done |
+| **5** | Combo 2a — Stripe Checkout (hosted) | ✅ Done |
+| **6** | Combo 2b — Stripe Elements (Card Element, branded) | ✅ Done |
+| **7** | Landing page tying all four; testing checklist; README polish | ✅ Done |
 
-### Routes Summary
+### Routes Summary (actual)
 
 ```
-GET  /login                  → AuthController@showLogin
-POST /login                  → AuthController@login            (LoginRequest)
-GET  /register               → AuthController@showRegister
-POST /register               → AuthController@register         (RegisterRequest)
-POST /logout                 → AuthController@logout
+GET  /                                guest → /login | auth → /dashboard
 
-GET  /dashboard              → DashboardController@index       [auth]
+# Auth (custom, no Breeze)
+GET  /login                           login
+POST /login                           login.submit
+GET  /register                        register
+POST /register                        register.submit
+POST /logout                          logout                    [auth]
 
-POST /subscribe/{plan}       → SubscriptionController          [auth]   (Combo 1a)
-POST /pay/intent             → PaymentIntentController         [auth]   (Combo 1b)
-POST /checkout/session       → CheckoutController              [auth]   (Combo 2a)
-GET  /pay/elements           → ElementsController              [auth]   (Combo 2b)
+# Dashboard
+GET  /dashboard                       dashboard                 [auth]
 
-GET  /orders/{id}/status     → OrderStatusController           [auth]   (polled by success page)
-POST /stripe/webhook         → WebhookController                        (CSRF-exempt, signature-verified)
+# Combo 1a — Cashier subscriptions
+GET  /subscriptions                   subscriptions.index       [auth]
+POST /subscriptions/subscribe         subscriptions.subscribe   [auth]
+GET  /subscriptions/success           subscriptions.success     [auth]
+GET  /subscriptions/cancel            subscriptions.cancel      [auth]
+GET  /subscriptions/manage            subscriptions.manage      [auth]
+POST /subscriptions/cancel-current    subscriptions.cancel-current [auth]
+POST /subscriptions/resume            subscriptions.resume      [auth]
 
-GET  /premium                → premium content                  [auth, paid]
-GET  /pro-features           → pro-only content                 [auth, subscribed]
+# Combo 1b — Payment Intents
+GET  /pay/intent                      payments.intent.show      [auth]
+POST /pay/intent                      payments.intent.create    [auth]
+GET  /pay/intent/success/{order}      payments.intent.success   [auth]
+
+# Combo 2a — Stripe Checkout (hosted)
+GET  /pay/checkout                    payments.checkout.index   [auth]
+POST /pay/checkout/start              payments.checkout.start   [auth]
+GET  /pay/checkout/success/{order}    payments.checkout.success [auth]
+GET  /pay/checkout/cancel             payments.checkout.cancel  [auth]
+
+# Combo 2b — Stripe Elements
+GET  /pay/elements                    payments.elements.index   [auth]
+GET  /pay/elements/{product}          payments.elements.show    [auth]
+GET  /pay/elements/success/{order}    payments.elements.success [auth]
+
+# Order status (polled by every success page)
+GET  /orders/{order}/status           orders.status             [auth]
+
+# Stripe webhook (CSRF-exempt, signature-verified by Cashier middleware)
+POST /stripe/webhook                  stripe.webhook
 ```
+
+26 application routes total. The `paid` and `subscribed` middleware aliases are registered globally and ready for use on any route that needs payment-gating.
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
+> No `npm install` / Vite — frontend assets come from CDN (Bootstrap 5, jQuery 3, Stripe.js).
+
+### 1. Install PHP dependencies
 
 ```bash
 composer install
-npm install
 ```
 
 ### 2. Environment
@@ -577,14 +605,18 @@ Copy `.env.example` → `.env` and fill in:
 APP_URL=http://localhost:8000
 
 DB_CONNECTION=mysql
-DB_DATABASE=payment_gateway
+DB_DATABASE=payment_gateways
 DB_USERNAME=root
 DB_PASSWORD=
 
+# Stripe (test mode keys from https://dashboard.stripe.com/test/apikeys)
 STRIPE_KEY=pk_test_xxx
 STRIPE_SECRET=sk_test_xxx
-STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_WEBHOOK_SECRET=                # filled in step 6 below
+
+# Cashier
 CASHIER_CURRENCY=usd
+CASHIER_CURRENCY_LOCALE=en
 ```
 
 ### 3. Database
@@ -592,24 +624,103 @@ CASHIER_CURRENCY=usd
 ```bash
 php artisan key:generate
 php artisan migrate
+php artisan db:seed                   # seeds 2 plans, 3 products, 1 test user
 ```
 
-### 4. Run
+### 4. Stripe Products (only required for Combos 1a & 2a/2b)
+
+The seeder uses placeholder `stripe_price_id` values for plans. For Combo 1a (subscriptions) you must replace them with real Stripe Price IDs:
+
+1. Go to https://dashboard.stripe.com/test/products → create `Starter Monthly` ($9.99/month) and `Pro Monthly` ($29.99/month)
+2. Copy each Price ID (starts with `price_…`)
+3. `UPDATE plans SET stripe_price_id = 'price_xxx' WHERE slug = 'starter-monthly';` (and likewise for `pro-monthly`)
+
+Combos 1b / 2a / 2b do **not** require Stripe products — they use inline `price_data` or arbitrary amounts.
+
+### 5. Run the dev server
 
 ```bash
-php artisan serve
-npm run dev
+php artisan serve                     # http://127.0.0.1:8000
 ```
 
-### 5. Webhook (local testing)
-
-Use the Stripe CLI to forward events to your local app:
+### 6. Stripe webhook listener (separate terminal)
 
 ```bash
 stripe listen --forward-to localhost:8000/stripe/webhook
 ```
 
-Copy the `whsec_...` it prints into `STRIPE_WEBHOOK_SECRET`.
+Copy the `whsec_…` it prints → paste as `STRIPE_WEBHOOK_SECRET` in `.env`.
+
+### 7. Queue worker (separate terminal — runs the listeners)
+
+```bash
+php artisan queue:work
+```
+
+Required for: order confirmation emails, `GrantUserAccess`, `NotifyOrderFailed`. Without this the listeners just sit in the `jobs` table.
+
+---
+
+## Testing the Four Combos
+
+Every combo can be tested with Stripe's test card `4242 4242 4242 4242` (any future date, any CVC, any zip).
+
+> **Pre-flight:** `php artisan serve` ✓ · `stripe listen --forward-to ...` ✓ · `php artisan queue:work` ✓
+
+### Combo 1a — Cashier subscriptions
+
+1. Make sure plans have real Stripe Price IDs (Setup step 4).
+2. Register at `/register` → land on `/dashboard`.
+3. Click **Combo 1a → Choose plan** → `/subscriptions`.
+4. Click **Subscribe with Stripe** → redirected to Stripe-hosted checkout.
+5. Pay with `4242…` → redirected back to `/subscriptions/success`.
+6. Page auto-refreshes every 3s until webhook fires `customer.subscription.created` → Cashier writes the `subscriptions` row → success page shows **active**.
+7. Verify: `SELECT * FROM subscriptions; SELECT type, processed_at FROM webhook_events;`
+8. Test cancel: `/subscriptions/manage` → Cancel → grace period UI → Resume.
+
+### Combo 1b — Payment Intents
+
+1. Click **Combo 1b → Pay any amount** → `/pay/intent`.
+2. Enter $19 → **Continue** → backend creates Order + PaymentIntent → returns `client_secret`.
+3. Stripe Payment Element mounts. Pay with `4242…`.
+4. Stripe redirects to `/pay/intent/success/{order_uuid}` which polls `/orders/{uuid}/status` every 1.5s.
+5. Within ~3s the webhook fires `payment_intent.succeeded` → handler marks order paid → polling sees `status=paid` → success view.
+6. Verify: `SELECT type, status, amount_cents, paid_at FROM orders ORDER BY id DESC LIMIT 3;`
+
+### Combo 2a — Stripe Checkout
+
+1. Click **Combo 2a → Browse products** → `/pay/checkout`.
+2. Click **Buy with Stripe Checkout** on a product → 303 redirect to `checkout.stripe.com/...`.
+3. Pay with `4242…` → Stripe redirects to `/pay/checkout/success/{uuid}`.
+4. Same polling flow — webhook fires `checkout.session.completed` → page flips to ✓.
+5. Verify: `SELECT * FROM orders WHERE type='checkout' ORDER BY id DESC LIMIT 1;`
+
+### Combo 2b — Stripe Elements
+
+1. Click **Combo 2b → Pay with Elements** → `/pay/elements`.
+2. Pick a product → `/pay/elements/{slug}`.
+3. PaymentIntent is created **on page load**; classic Card Element mounts (notice URL stays on `127.0.0.1`).
+4. Type cardholder name + `4242…` → Pay.
+5. `stripe.confirmCardPayment` succeeds → JS redirects to `/pay/elements/success/{uuid}`.
+6. Same polling pattern. Webhook fires `payment_intent.succeeded` → ✓.
+
+### Idempotency check
+
+Trigger Stripe to re-deliver an event:
+```bash
+stripe events resend evt_xxx
+```
+Watch `webhook_events.processed_at` — only the first delivery has it set; subsequent retries return 200 with `Already processed` and no duplicate emails / DB writes.
+
+### Reconciliation cron (manual run)
+
+```bash
+php artisan schedule:run            # or just dispatch the job:
+php artisan tinker
+> \App\Jobs\ReconcileStripePaymentsJob::dispatch();
+```
+
+Reads recent Stripe PaymentIntents and logs warnings for any that succeeded in Stripe but aren't `paid` in the DB.
 
 ---
 

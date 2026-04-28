@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ElementsController;
 use App\Http\Controllers\OrderStatusController;
 use App\Http\Controllers\PaymentIntentController;
 use App\Http\Controllers\SubscriptionController;
@@ -41,6 +43,21 @@ Route::middleware('auth')->group(function () {
         Route::get('/',                          [PaymentIntentController::class, 'show'])->name('show');
         Route::post('/',                         [PaymentIntentController::class, 'create'])->name('create');
         Route::get('/success/{order:uuid}',      [PaymentIntentController::class, 'success'])->name('success');
+    });
+
+    // Combo 2a — Stripe Checkout (hosted)
+    Route::prefix('pay/checkout')->name('payments.checkout.')->group(function () {
+        Route::get('/',                     [CheckoutController::class, 'index'])->name('index');
+        Route::post('/start',               [CheckoutController::class, 'start'])->name('start');
+        Route::get('/success/{order:uuid}', [CheckoutController::class, 'success'])->name('success');
+        Route::get('/cancel',               [CheckoutController::class, 'cancel'])->name('cancel');
+    });
+
+    // Combo 2b — Stripe Elements (custom branded UI)
+    Route::prefix('pay/elements')->name('payments.elements.')->group(function () {
+        Route::get('/',                     [ElementsController::class, 'index'])->name('index');
+        Route::get('/{product:slug}',       [ElementsController::class, 'show'])->name('show');
+        Route::get('/success/{order:uuid}', [ElementsController::class, 'success'])->name('success');
     });
 
     // Polled by every success page to detect when the webhook flipped status.

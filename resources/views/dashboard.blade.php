@@ -42,7 +42,7 @@
                 <span class="badge bg-warning text-dark mb-2">Combo 2a</span>
                 <h5>Stripe Checkout</h5>
                 <p class="text-muted small">Hosted checkout — fastest to ship.</p>
-                <a class="btn btn-warning btn-sm disabled" aria-disabled="true">Coming in Step 5</a>
+                <a class="btn btn-warning btn-sm" href="{{ route('payments.checkout.index') }}">Browse products</a>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
                 <span class="badge bg-info text-dark mb-2">Combo 2b</span>
                 <h5>Stripe Elements</h5>
                 <p class="text-muted small">Custom card field, your domain & branding.</p>
-                <a class="btn btn-info btn-sm disabled" aria-disabled="true">Coming in Step 6</a>
+                <a class="btn btn-info btn-sm text-white" href="{{ route('payments.elements.index') }}">Pay with Elements</a>
             </div>
         </div>
     </div>

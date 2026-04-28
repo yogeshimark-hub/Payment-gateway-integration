@@ -1,0 +1,24 @@
+/* Combo 2b — Stripe Elements branded card field */
+#card-element {
+    padding: 12px 14px;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background: #fff;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#card-element.StripeElement--focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#card-element.StripeElement--invalid {
+    border-color: #dc3545;
+}
+
+#card-errors {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    min-height: 1.25rem;
+}

@@ -11,7 +11,7 @@
                     <div class="display-3 mb-3">⏳</div>
                     <h3>Confirming your payment…</h3>
                     <p class="text-muted">Stripe is sending us the success notification (this typically takes 1–3 seconds).</p>
-                    <div class="spinner-border text-success" role="status"></div>
+                    <div class="spinner-border text-warning" role="status"></div>
                 </div>
 
                 <div id="status-paid" @unless ($order->isPaid()) style="display:none" @endunless>
@@ -52,11 +52,6 @@
             if (data.paid_at) $('#paid-at').text(data.paid_at);
             $('#status-pending').hide();
             $('#status-paid').show();
-        },
-        onFailed: function () {
-            $('#status-pending').hide();
-            $('#status-timeout').find('h3').text('Payment failed');
-            $('#status-timeout').show();
         },
         onTimeout: function () {
             $('#status-pending').hide();
