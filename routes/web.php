@@ -12,6 +12,8 @@ use App\Models\Plan;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\PracticeController;
+
 Route::get('/', function () {
     return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
@@ -85,3 +87,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 // VerifyWebhookSignature middleware (auto-applied in WebhookController constructor).
 Route::post('/stripe/webhook', [WebhookController::class, 'handleWebhook'])
     ->name('stripe.webhook');
+
+
+    Route::get('/practiveSerive',[PracticeController::class,'simple']);
+    Route::get('/practiveSerive/bound', [PracticeController::class, 'bound']);
